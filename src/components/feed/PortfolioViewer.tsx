@@ -35,7 +35,7 @@ export default function PortfolioViewer({ item, onClose }: Props) {
       statusBarTranslucent
     >
       <View style={styles.container}>
-        {mediaUrl && item?.media_type === 'video' ? (
+        {mediaUrl && item?.type === 'video' ? (
           <Video
             source={{ uri: mediaUrl }}
             style={styles.media}

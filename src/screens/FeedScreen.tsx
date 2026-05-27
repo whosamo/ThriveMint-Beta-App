@@ -42,7 +42,7 @@ export default function FeedScreen() {
     if (!user) return;
     await supabase
       .from('shortlists')
-      .upsert({ business_user_id: user.id, freelancer_id: freelancerId });
+      .upsert({ business_user_id: user.id, freelancer_user_id: freelancerId });
   }, []);
 
   const handlePress = useCallback(

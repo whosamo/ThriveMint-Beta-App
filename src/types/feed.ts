@@ -19,13 +19,12 @@ export interface FeedItem {
   distance_miles: number | null;
 }
 
-export type PortfolioCategory = 'portfolio' | 'before_after' | 'testimonial';
+export type PortfolioItemType = 'video' | 'image' | 'before_after' | 'testimonial';
 
 export interface PortfolioItem {
   id: string;
   media_url: string;
-  media_type: 'video' | 'image';
-  category: PortfolioCategory;
+  type: PortfolioItemType;
   title: string | null;
   description: string | null;
 }

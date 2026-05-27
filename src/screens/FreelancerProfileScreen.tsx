@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { supabase } from '../services/supabase';
+import { getOrCreateConversation } from '../services/messagingService';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { haversineDistanceMiles } from '../utils/haversine';
 import { PortfolioItem, ReviewItem } from '../types/feed';
@@ -111,7 +112,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
             id, bio, hourly_rate, availability, service_categories,
             verification_status, badges, years_experience,
             users!inner(id, full_name, avatar_url, city, state, lat, lng),
-            portfolio_items(id, media_url, media_type, category, title, description, created_at)
+            portfolio_items(id, media_url, type, title, description, created_at)
           `)
           .eq('id', freelancerId)
           .single();
@@ -132,7 +133,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
             .from('shortlists')
             .select('id')
             .eq('business_user_id', user.id)
-            .eq('freelancer_id', fp.id)
+            .eq('freelancer_user_id', u.id)
             .maybeSingle(),
           supabase
             .from('users')
@@ -170,15 +171,14 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
         const rawItems = (Array.isArray(fp.portfolio_items) ? fp.portfolio_items : []) as any[];
         const sortedItems: PortfolioItem[] = rawItems
           .sort((a, b) => {
-            if (a.media_type === 'video' && b.media_type !== 'video') return -1;
-            if (a.media_type !== 'video' && b.media_type === 'video') return 1;
+            if (a.type === 'video' && b.type !== 'video') return -1;
+            if (a.type !== 'video' && b.type === 'video') return 1;
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           })
           .map(p => ({
             id: p.id,
             media_url: p.media_url,
-            media_type: p.media_type as 'video' | 'image',
-            category: (p.category ?? 'portfolio') as PortfolioItem['category'],
+            type: p.type as PortfolioItem['type'],
             title: p.title ?? null,
             description: p.description ?? null,
           }));
@@ -240,10 +240,10 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
   const filteredPortfolio = useMemo(() => {
     if (!profile) return [];
     switch (activeTab) {
-      case 'Videos':       return profile.portfolioItems.filter(p => p.media_type === 'video');
-      case 'Images':       return profile.portfolioItems.filter(p => p.media_type === 'image');
-      case 'Before & After': return profile.portfolioItems.filter(p => p.category === 'before_after');
-      case 'Testimonials': return profile.portfolioItems.filter(p => p.category === 'testimonial');
+      case 'Videos':       return profile.portfolioItems.filter(p => p.type === 'video');
+      case 'Images':       return profile.portfolioItems.filter(p => p.type === 'image');
+      case 'Before & After': return profile.portfolioItems.filter(p => p.type === 'before_after');
+      case 'Testimonials': return profile.portfolioItems.filter(p => p.type === 'testimonial');
       default:             return profile.portfolioItems;
     }
   }, [profile, activeTab]);
@@ -267,7 +267,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
     setIsShortlisted(true);
     const { error: e } = await supabase
       .from('shortlists')
-      .upsert({ business_user_id: currentUserId, freelancer_id: profile.freelancerId });
+      .upsert({ business_user_id: currentUserId, freelancer_user_id: profile.userId });
     if (e) {
       setIsShortlisted(false);
       Alert.alert('Error', 'Could not save to shortlist. Please try again.');
@@ -275,13 +275,24 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
     setIsSaving(false);
   }, [currentUserId, profile, isShortlisted]);
 
-  const handleMessage = useCallback(() => {
+  const handleMessage = useCallback(async () => {
     if (!isShortlisted) {
       Alert.alert('Shortlist first', 'Save this freelancer to your shortlist to unlock messaging.');
       return;
     }
-    Alert.alert('Coming soon', 'Messaging will be available in the next update.');
-  }, [isShortlisted]);
+    if (!currentUserId || !profile) return;
+    try {
+      const conversationId = await getOrCreateConversation(currentUserId, profile.userId);
+      navigation.navigate('Chat', {
+        conversationId,
+        otherUserId: profile.userId,
+        otherUserName: profile.fullName,
+        otherUserAvatar: profile.avatarUrl,
+      });
+    } catch {
+      Alert.alert('Error', 'Could not open conversation. Please try again.');
+    }
+  }, [isShortlisted, currentUserId, profile, navigation]);
 
   // ── Loading / Error ──────────────────────────────────────────────────
   if (isLoading) {
@@ -313,7 +324,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
       >
         {/* ── Cover ──────────────────────────────────────────────────── */}
         <View style={styles.cover}>
-          {coverUrl && coverItem?.media_type === 'video' ? (
+          {coverUrl && coverItem?.type === 'video' ? (
             <Video
               source={{ uri: coverUrl }}
               style={StyleSheet.absoluteFillObject}
@@ -484,15 +495,15 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
                     activeOpacity={0.82}
                   >
                     <Image source={{ uri: url }} style={styles.portfolioThumb} resizeMode="cover" />
-                    {item.media_type === 'video' && (
+                    {item.type === 'video' && (
                       <View style={styles.playOverlay}>
                         <Text style={styles.playIcon}>▶</Text>
                       </View>
                     )}
-                    {item.category !== 'portfolio' && (
+                    {(item.type === 'before_after' || item.type === 'testimonial') && (
                       <View style={styles.categoryLabel}>
                         <Text style={styles.categoryLabelText}>
-                          {item.category === 'before_after' ? 'Before/After' : 'Testimonial'}
+                          {item.type === 'before_after' ? 'Before/After' : 'Testimonial'}
                         </Text>
                       </View>
                     )}

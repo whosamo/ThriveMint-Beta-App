@@ -6,6 +6,7 @@ import AuthNavigator from './AuthNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import BottomTabNavigator from './BottomTabNavigator';
 import FreelancerProfileScreen from '../screens/FreelancerProfileScreen';
+import ChatScreen from '../screens/ChatScreen';
 import { colors } from '../theme';
 
 export type RootStackParamList = {
@@ -13,6 +14,12 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
   FreelancerProfile: { freelancerId: string };
+  Chat: {
+    conversationId: string;
+    otherUserId: string;
+    otherUserName: string;
+    otherUserAvatar?: string | null;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -41,6 +48,11 @@ export default function RootNavigator() {
         name="FreelancerProfile"
         component={FreelancerProfileScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );

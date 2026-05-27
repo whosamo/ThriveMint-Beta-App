@@ -38,7 +38,7 @@ export default function FeedCard({ item, isFocused, onShortlist, onPress }: Prop
         Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 20 }),
         Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       ]).start();
-      onShortlist(item.freelancer_id);
+      onShortlist(item.user_id);
     });
   }, [translateX, heartOpacity, onShortlist, item.freelancer_id]);
 

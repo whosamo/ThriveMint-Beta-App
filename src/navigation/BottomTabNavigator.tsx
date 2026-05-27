@@ -4,11 +4,13 @@ import { Text } from 'react-native';
 import FeedScreen from '../screens/FeedScreen';
 import ExploreScreen from '../screens/ExploreScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ConversationsListScreen from '../screens/ConversationsListScreen';
 import { colors, typography } from '../theme';
 
 export type BottomTabParamList = {
   Home: undefined;
   Explore: undefined;
+  Messages: undefined;
   Profile: undefined;
 };
 
@@ -18,6 +20,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Home: '⊕',
     Explore: '◎',
+    Messages: '✉',
     Profile: '◉',
   };
   return (
@@ -53,6 +56,7 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen name="Home" component={FeedScreen} />
       <Tab.Screen name="Explore" component={ExploreScreen} />
+      <Tab.Screen name="Messages" component={ConversationsListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
