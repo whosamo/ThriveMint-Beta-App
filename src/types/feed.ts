@@ -18,3 +18,23 @@ export interface FeedItem {
   portfolio_description: string | null;
   distance_miles: number | null;
 }
+
+export type PortfolioCategory = 'portfolio' | 'before_after' | 'testimonial';
+
+export interface PortfolioItem {
+  id: string;
+  media_url: string;
+  media_type: 'video' | 'image';
+  category: PortfolioCategory;
+  title: string | null;
+  description: string | null;
+}
+
+export interface ReviewItem {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  reviewer_name: string;
+  reviewer_avatar_url: string | null;
+}
