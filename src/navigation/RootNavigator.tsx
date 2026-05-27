@@ -5,12 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import BottomTabNavigator from './BottomTabNavigator';
+import FreelancerProfileScreen from '../screens/FreelancerProfileScreen';
 import { colors } from '../theme';
 
 export type RootStackParamList = {
   Auth: undefined;
   Onboarding: undefined;
   Main: undefined;
+  FreelancerProfile: { freelancerId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -35,6 +37,11 @@ export default function RootNavigator() {
       ) : (
         <Stack.Screen name="Main" component={BottomTabNavigator} />
       )}
+      <Stack.Screen
+        name="FreelancerProfile"
+        component={FreelancerProfileScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
     </Stack.Navigator>
   );
 }
