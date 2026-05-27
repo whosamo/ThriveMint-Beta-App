@@ -29,7 +29,19 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@stripe/stripe-react-native"
+      "@stripe/stripe-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow ThriveMint to use your location to show nearby freelancers."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ThriveMint needs access to your photos to upload a profile picture."
+        }
+      ]
     ]
   }
 }
