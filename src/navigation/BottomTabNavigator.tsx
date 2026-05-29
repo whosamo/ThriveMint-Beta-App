@@ -1,14 +1,18 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
-import HomeScreen from '../screens/HomeScreen';
+import FeedScreen from '../screens/FeedScreen';
+import FreelancerHomeScreen from '../screens/FreelancerHomeScreen';
 import ExploreScreen from '../screens/ExploreScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ConversationsListScreen from '../screens/ConversationsListScreen';
+import { useAuth } from '../context/AuthContext';
 import { colors, typography } from '../theme';
 
 export type BottomTabParamList = {
   Home: undefined;
   Explore: undefined;
+  Messages: undefined;
   Profile: undefined;
 };
 
@@ -18,6 +22,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Home: '⊕',
     Explore: '◎',
+    Messages: '✉',
     Profile: '◉',
   };
   return (
@@ -28,6 +33,9 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 }
 
 export default function BottomTabNavigator() {
+  const { profile } = useAuth();
+  const isFreelancer = profile?.role === 'freelancer' || profile?.role === 'both';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -51,8 +59,12 @@ export default function BottomTabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen
+        name="Home"
+        component={isFreelancer ? FreelancerHomeScreen : FeedScreen}
+      />
       <Tab.Screen name="Explore" component={ExploreScreen} />
+      <Tab.Screen name="Messages" component={ConversationsListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

@@ -29,7 +29,25 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.thrivemint.app",
+          "enableGooglePay": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow ThriveMint to use your location to show nearby freelancers."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ThriveMint needs access to your photos to upload a profile picture."
+        }
+      ]
     ]
   }
 }
