@@ -1,11 +1,13 @@
 import React, { useRef, useCallback } from 'react';
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
   PanResponder,
   StyleSheet,
   Text,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
@@ -23,9 +25,11 @@ interface Props {
   isFocused: boolean;
   onShortlist: (freelancerId: string) => void;
   onPress: (freelancerId: string) => void;
+  onReport?: (userId: string, userName: string) => void;
+  onBlock?: (userId: string, userName: string) => void;
 }
 
-export default function FeedCard({ item, isFocused, onShortlist, onPress }: Props) {
+export default function FeedCard({ item, isFocused, onShortlist, onPress, onReport, onBlock }: Props) {
   const translateX = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
 
@@ -111,6 +115,28 @@ export default function FeedCard({ item, isFocused, onShortlist, onPress }: Prop
           />
         </View>
       </TouchableWithoutFeedback>
+
+      {/* Three-dot safety menu */}
+      <TouchableOpacity
+        style={styles.threeDot}
+        onPress={() => {
+          Alert.alert(item.full_name, undefined, [
+            {
+              text: 'Report',
+              onPress: () => onReport?.(item.user_id, item.full_name),
+            },
+            {
+              text: 'Block',
+              style: 'destructive',
+              onPress: () => onBlock?.(item.user_id, item.full_name),
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ]);
+        }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.threeDotIcon}>⋯</Text>
+      </TouchableOpacity>
 
       {/* Heart overlay on swipe */}
       <Animated.View style={[styles.heartOverlay, { opacity: heartOpacity }]}>
@@ -361,5 +387,23 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     textAlign: 'center',
     marginTop: spacing.xs,
+  },
+  threeDot: {
+    position: 'absolute',
+    top: 52,
+    right: spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  threeDotIcon: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 1,
   },
 });

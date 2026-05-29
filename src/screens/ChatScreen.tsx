@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,7 +31,6 @@ import {
   uploadAttachment,
   scheduleMeeting,
   createProject,
-  getOrCreateConversation,
 } from '../services/messagingService';
 import { getContractByProject } from '../services/contractService';
 import { Message, ProjectDraft } from '../types/messaging';
@@ -38,12 +38,30 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import MessageBubble from '../components/messaging/MessageBubble';
 import MeetingSchedulerModal from '../components/messaging/MeetingSchedulerModal';
 import ProjectModal from '../components/messaging/ProjectModal';
+import ReportModal from '../components/safety/ReportModal';
+import BlockConfirmModal from '../components/safety/BlockConfirmModal';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type RouteT = RouteProp<RootStackParamList, 'Chat'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const PAGE_SIZE = 30;
+
+// Patterns that suggest off-platform communication or payment
+const OFF_PLATFORM_RE = [
+  /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/,
+  /\b(venmo|cashapp|cash\s*app|zelle|paypal|pay\s*pal|applepay|apple\s*pay|gpay|google\s*pay)\b/i,
+  /\b(text me|email me|dm me|whatsapp|telegram|signal|call me|reach me|contact me off)\b/i,
+];
+
+function detectsOffPlatform(text: string): boolean {
+  return OFF_PLATFORM_RE.some(re => re.test(text));
+}
+
+function safetyCacheKey(conversationId: string) {
+  return `chat_safety_banner_dismissed_${conversationId}`;
+}
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -60,18 +78,31 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showSafetyBanner, setShowSafetyBanner] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportMessageId, setReportMessageId] = useState<string | undefined>(undefined);
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // resolve current user
+  const showOffPlatformWarning = useMemo(() => detectsOffPlatform(inputText), [inputText]);
+
+  // Resolve current user
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id ?? null);
     });
   }, []);
 
-  // initial load
+  // Check if safety banner has been dismissed for this conversation
+  useEffect(() => {
+    AsyncStorage.getItem(safetyCacheKey(conversationId)).then(val => {
+      if (!val) setShowSafetyBanner(true);
+    });
+  }, [conversationId]);
+
+  // Initial load
   useEffect(() => {
     if (!currentUserId) return;
     (async () => {
@@ -88,7 +119,7 @@ export default function ChatScreen() {
     })();
   }, [conversationId, currentUserId]);
 
-  // realtime subscription
+  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`chat:${conversationId}`)
@@ -114,10 +145,13 @@ export default function ChatScreen() {
       .subscribe();
 
     channelRef.current = channel;
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [conversationId, currentUserId]);
+
+  const dismissSafetyBanner = useCallback(() => {
+    setShowSafetyBanner(false);
+    AsyncStorage.setItem(safetyCacheKey(conversationId), '1');
+  }, [conversationId]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || messages.length === 0) return;
@@ -204,10 +238,7 @@ export default function ChatScreen() {
       try {
         const existing = await getContractByProject(projectId);
         if (existing && existing.status !== 'draft') {
-          navigation.navigate('ContractReview', {
-            contractId: existing.id,
-            conversationId,
-          });
+          navigation.navigate('ContractReview', { contractId: existing.id, conversationId });
         } else {
           navigation.navigate('ContractBuilder', { projectId, conversationId });
         }
@@ -224,6 +255,27 @@ export default function ChatScreen() {
     },
     [conversationId, navigation],
   );
+
+  const handleMessageLongPress = useCallback((messageId: string) => {
+    Alert.alert('Message options', undefined, [
+      {
+        text: 'Report message',
+        onPress: () => {
+          setReportMessageId(messageId);
+          setShowReportModal(true);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, []);
+
+  const handleThreeDot = useCallback(() => {
+    Alert.alert(otherUserName, undefined, [
+      { text: 'Report User', onPress: () => { setReportMessageId(undefined); setShowReportModal(true); } },
+      { text: 'Block User', style: 'destructive', onPress: () => setShowBlockModal(true) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [otherUserName]);
 
   const avatarUrl = useMemo(
     () =>
@@ -243,9 +295,10 @@ export default function ChatScreen() {
         currentUserId={currentUserId ?? ''}
         onContractAction={handleContractAction}
         onContractPress={handleContractPress}
+        onLongPress={handleMessageLongPress}
       />
     ),
-    [currentUserId, handleContractAction, handleContractPress],
+    [currentUserId, handleContractAction, handleContractPress, handleMessageLongPress],
   );
 
   const ListFooter = useCallback(() => {
@@ -256,6 +309,21 @@ export default function ChatScreen() {
       </View>
     );
   }, [loadingMore]);
+
+  // Safety banner as list header (shows at bottom since list is inverted)
+  const ListHeader = useCallback(() => {
+    if (!showSafetyBanner) return null;
+    return (
+      <View style={styles.safetyBanner}>
+        <Text style={styles.safetyBannerText}>
+          🔒 Keep payments and communication on ThriveMint to stay protected.
+        </Text>
+        <TouchableOpacity onPress={dismissSafetyBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.safetyBannerClose}>✕</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [showSafetyBanner, dismissSafetyBanner]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -294,6 +362,13 @@ export default function ChatScreen() {
         >
           <Text style={styles.headerActionIcon}>📋</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={handleThreeDot}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.headerThreeDot}>⋯</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Messages */}
@@ -318,11 +393,21 @@ export default function ChatScreen() {
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             ListFooterComponent={ListFooter}
+            ListHeaderComponent={ListHeader}
             removeClippedSubviews
             initialNumToRender={20}
             maxToRenderPerBatch={10}
             windowSize={7}
           />
+        )}
+
+        {/* Off-platform keyword warning */}
+        {showOffPlatformWarning && (
+          <View style={styles.offPlatformWarning}>
+            <Text style={styles.offPlatformText}>
+              🔒 Reminder: payments and communication through ThriveMint keep you protected.
+            </Text>
+          </View>
         )}
 
         {/* Input bar */}
@@ -369,6 +454,23 @@ export default function ChatScreen() {
         visible={showProjectModal}
         onClose={() => setShowProjectModal(false)}
         onSubmit={handleCreateProject}
+      />
+
+      <ReportModal
+        visible={showReportModal}
+        reportedUserId={otherUserId}
+        reportedUserName={otherUserName}
+        contentType={reportMessageId ? 'message' : 'profile'}
+        contentId={reportMessageId}
+        onClose={() => { setShowReportModal(false); setReportMessageId(undefined); }}
+      />
+
+      <BlockConfirmModal
+        visible={showBlockModal}
+        blockedUserId={otherUserId}
+        blockedUserName={otherUserName}
+        onClose={() => setShowBlockModal(false)}
+        onBlocked={() => navigation.goBack()}
       />
     </View>
   );
@@ -434,6 +536,47 @@ const styles = StyleSheet.create({
   },
   headerActionIcon: {
     fontSize: 22,
+  },
+  headerThreeDot: {
+    color: colors.textSecondary,
+    fontSize: 20,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 1,
+  },
+  safetyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(52,152,219,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,152,219,0.35)',
+    borderRadius: borderRadius.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  safetyBannerText: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+  },
+  safetyBannerClose: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+  offPlatformWarning: {
+    backgroundColor: 'rgba(243,156,18,0.12)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(243,156,18,0.4)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  offPlatformText: {
+    color: '#F39C12',
+    fontSize: typography.fontSize.xs,
+    lineHeight: 17,
   },
   messageList: {
     paddingVertical: spacing.sm,

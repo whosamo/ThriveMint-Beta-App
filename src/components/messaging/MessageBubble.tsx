@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Message, MeetingMetadata, ProjectMetadata, ContractMetadata } from '../../types/messaging';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import MeetingCard from './MeetingCard';
@@ -10,6 +10,7 @@ interface Props {
   currentUserId: string;
   onContractAction?: (projectId: string) => void;
   onContractPress?: (contractId: string, projectId: string) => void;
+  onLongPress?: (messageId: string) => void;
 }
 
 function formatTime(iso: string): string {
@@ -25,6 +26,7 @@ export default function MessageBubble({
   currentUserId,
   onContractAction,
   onContractPress,
+  onLongPress,
 }: Props) {
   if (message.message_type === 'system') {
     return (
@@ -124,26 +126,30 @@ export default function MessageBubble({
 
   if (message.message_type === 'image' && message.file_url) {
     return (
-      <View style={[styles.row, isMine ? styles.rowRight : styles.rowLeft]}>
-        <Image source={{ uri: message.file_url }} style={styles.imageMsg} resizeMode="cover" />
-        <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
-          {formatTime(message.created_at)}
-        </Text>
-      </View>
+      <TouchableWithoutFeedback onLongPress={() => !isMine && onLongPress?.(message.id)}>
+        <View style={[styles.row, isMine ? styles.rowRight : styles.rowLeft]}>
+          <Image source={{ uri: message.file_url }} style={styles.imageMsg} resizeMode="cover" />
+          <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
+            {formatTime(message.created_at)}
+          </Text>
+        </View>
+      </TouchableWithoutFeedback>
     );
   }
 
   return (
-    <View style={[styles.row, isMine ? styles.rowRight : styles.rowLeft]}>
-      <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-        <Text style={[styles.bubbleText, isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs]}>
-          {message.content}
+    <TouchableWithoutFeedback onLongPress={() => !isMine && onLongPress?.(message.id)}>
+      <View style={[styles.row, isMine ? styles.rowRight : styles.rowLeft]}>
+        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+          <Text style={[styles.bubbleText, isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs]}>
+            {message.content}
+          </Text>
+        </View>
+        <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
+          {formatTime(message.created_at)}
         </Text>
       </View>
-      <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
-        {formatTime(message.created_at)}
-      </Text>
-    </View>
+    </TouchableWithoutFeedback>
   );
 }
 

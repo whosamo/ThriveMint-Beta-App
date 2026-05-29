@@ -14,6 +14,8 @@ import { useFeed } from '../hooks/useFeed';
 import { useBriefContext } from '../context/BriefContext';
 import FeedCard from '../components/feed/FeedCard';
 import FeedCardSkeleton from '../components/feed/FeedCardSkeleton';
+import ReportModal from '../components/safety/ReportModal';
+import BlockConfirmModal from '../components/safety/BlockConfirmModal';
 import { FeedItem } from '../types/feed';
 import { colors, typography, spacing } from '../theme';
 import { supabase } from '../services/supabase';
@@ -25,9 +27,12 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function FeedScreen() {
   const { activeBriefMatch, clearBriefMatch } = useBriefContext();
-  const { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore } = useFeed(activeBriefMatch);
+  const { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore, removeItem } = useFeed(activeBriefMatch);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const navigation = useNavigation<NavProp>();
+
+  const [reportTarget, setReportTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [blockTarget, setBlockTarget] = useState<{ userId: string; name: string } | null>(null);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -54,6 +59,14 @@ export default function FeedScreen() {
     [navigation],
   );
 
+  const handleReport = useCallback((userId: string, userName: string) => {
+    setReportTarget({ userId, name: userName });
+  }, []);
+
+  const handleBlock = useCallback((userId: string, userName: string) => {
+    setBlockTarget({ userId, name: userName });
+  }, []);
+
   const getItemLayout = useCallback(
     (_: ArrayLike<FeedItem> | null | undefined, index: number) => ({
       length: SCREEN_HEIGHT,
@@ -72,9 +85,11 @@ export default function FeedScreen() {
         isFocused={index === focusedIndex}
         onShortlist={handleShortlist}
         onPress={handlePress}
+        onReport={handleReport}
+        onBlock={handleBlock}
       />
     ),
-    [focusedIndex, handleShortlist, handlePress],
+    [focusedIndex, handleShortlist, handlePress, handleReport, handleBlock],
   );
 
   const ListFooter = useCallback(() => {
@@ -166,6 +181,26 @@ export default function FeedScreen() {
       >
         <Text style={styles.fabText}>✦ What do you need?</Text>
       </TouchableOpacity>
+
+      {/* Safety modals */}
+      {reportTarget && (
+        <ReportModal
+          visible={!!reportTarget}
+          reportedUserId={reportTarget.userId}
+          reportedUserName={reportTarget.name}
+          contentType="profile"
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+      {blockTarget && (
+        <BlockConfirmModal
+          visible={!!blockTarget}
+          blockedUserId={blockTarget.userId}
+          blockedUserName={blockTarget.name}
+          onClose={() => setBlockTarget(null)}
+          onBlocked={() => removeItem(blockTarget.userId)}
+        />
+      )}
     </View>
   );
 }

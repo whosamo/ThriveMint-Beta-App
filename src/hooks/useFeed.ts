@@ -3,6 +3,7 @@ import { FeedItem } from '../types/feed';
 import { BriefMatchContext } from '../types/brief';
 import { fetchFeedPage, FEED_PAGE_SIZE } from '../services/feedService';
 import { rankFeedItems } from '../services/rankingService';
+import { getBlockedUserIds } from '../services/safetyService';
 
 export interface UseFeedResult {
   items: FeedItem[];
@@ -12,6 +13,7 @@ export interface UseFeedResult {
   error: string | null;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
+  removeItem: (userId: string) => void;
 }
 
 export function useFeed(briefContext?: BriefMatchContext | null): UseFeedResult {
@@ -24,6 +26,12 @@ export function useFeed(briefContext?: BriefMatchContext | null): UseFeedResult 
   const busyRef = useRef(false);
   const briefContextRef = useRef(briefContext);
   briefContextRef.current = briefContext;
+  const blockedIdsRef = useRef<Set<string>>(new Set());
+
+  // Load blocked IDs once on mount so feed filtering stays current
+  useEffect(() => {
+    getBlockedUserIds().then(ids => { blockedIdsRef.current = new Set(ids); });
+  }, []);
 
   const load = useCallback(async (reset: boolean) => {
     if (busyRef.current) return;
@@ -32,14 +40,18 @@ export function useFeed(briefContext?: BriefMatchContext | null): UseFeedResult 
     if (reset) {
       setIsLoading(true);
       offsetRef.current = 0;
+      // Refresh blocked list on explicit refresh too
+      const ids = await getBlockedUserIds().catch(() => [] as string[]);
+      blockedIdsRef.current = new Set(ids);
     } else {
       setIsLoadingMore(true);
     }
 
     try {
       const page = await fetchFeedPage(offsetRef.current);
+      const unblocked = page.filter(item => !blockedIdsRef.current.has(item.user_id));
       const ranked = await rankFeedItems(
-        page,
+        unblocked,
         briefContextRef.current ? { briefContext: briefContextRef.current } : undefined,
       );
       setItems(prev => (reset ? ranked : [...prev, ...ranked]));
@@ -69,5 +81,11 @@ export function useFeed(briefContext?: BriefMatchContext | null): UseFeedResult 
     return load(false);
   }, [hasMore, isLoadingMore, isLoading, load]);
 
-  return { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore };
+  // Immediately remove a user from the visible feed (after block)
+  const removeItem = useCallback((userId: string) => {
+    blockedIdsRef.current.add(userId);
+    setItems(prev => prev.filter(item => item.user_id !== userId));
+  }, []);
+
+  return { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore, removeItem };
 }

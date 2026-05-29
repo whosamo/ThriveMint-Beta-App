@@ -23,6 +23,8 @@ import { haversineDistanceMiles } from '../utils/haversine';
 import { PortfolioItem, ReviewItem } from '../types/feed';
 import { AvailabilityStatus, STATUS_COLOR, RESPONSE_TIME_LABELS } from '../types/availability';
 import PortfolioViewer from '../components/feed/PortfolioViewer';
+import ReportModal from '../components/safety/ReportModal';
+import BlockConfirmModal from '../components/safety/BlockConfirmModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FreelancerProfile'>;
 
@@ -101,6 +103,8 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserLoc, setCurrentUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,6 +321,15 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
     await doShortlist();
   }, [currentUserId, profile, isShortlisted, availabilityStrip, doShortlist, navigation]);
 
+  const handleThreeDot = useCallback(() => {
+    if (!profile) return;
+    Alert.alert(profile.fullName, undefined, [
+      { text: 'Report Profile', onPress: () => setShowReportModal(true) },
+      { text: 'Block User', style: 'destructive', onPress: () => setShowBlockModal(true) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [profile]);
+
   const handleMessage = useCallback(async () => {
     if (!isShortlisted) {
       Alert.alert('Shortlist first', 'Save this freelancer to your shortlist to unlock messaging.');
@@ -399,6 +412,15 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
           {/* Back */}
           <TouchableOpacity style={[styles.backBtn, { top: (insets.top || 44) + 8 }]} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>←</Text>
+          </TouchableOpacity>
+
+          {/* Three-dot safety menu */}
+          <TouchableOpacity
+            style={[styles.threeDotBtn, { top: (insets.top || 44) + 8 }]}
+            onPress={handleThreeDot}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.threeDotBtnText}>⋯</Text>
           </TouchableOpacity>
 
           {/* Distance badge */}
@@ -696,6 +718,26 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
       </View>
 
       <PortfolioViewer item={viewerItem} onClose={() => setViewerItem(null)} />
+
+      {profile && (
+        <>
+          <ReportModal
+            visible={showReportModal}
+            reportedUserId={profile.userId}
+            reportedUserName={profile.fullName}
+            contentType="profile"
+            contentId={profile.freelancerId}
+            onClose={() => setShowReportModal(false)}
+          />
+          <BlockConfirmModal
+            visible={showBlockModal}
+            blockedUserId={profile.userId}
+            blockedUserName={profile.fullName}
+            onClose={() => setShowBlockModal(false)}
+            onBlocked={() => navigation.goBack()}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -717,6 +759,16 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backBtnText: { color: colors.white, fontSize: 22, lineHeight: 26 },
+  threeDotBtn: {
+    position: 'absolute',
+    right: spacing.md,
+    width: 38, height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 10,
+  },
+  threeDotBtnText: { color: colors.white, fontSize: 18, fontWeight: typography.fontWeight.bold, letterSpacing: 1 },
   distancePill: {
     position: 'absolute', right: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.55)',
