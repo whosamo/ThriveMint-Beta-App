@@ -18,34 +18,43 @@ function applyRankedOrder(items: FeedItem[], rankedIds: string[]): FeedItem[] {
   });
 }
 
-export async function rankFeedItems(items: FeedItem[]): Promise<FeedItem[]> {
+export interface RankOptions {
+  briefContext?: { service_category: string; ideal_freelancer_profile: string; brief_title: string };
+}
+
+export async function rankFeedItems(items: FeedItem[], options?: RankOptions): Promise<FeedItem[]> {
   if (items.length === 0) return items;
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return items;
 
   const key = cacheKey(user.id);
+  const hasBrief = !!options?.briefContext;
 
-  try {
-    const cached = await AsyncStorage.getItem(key);
-    if (cached) {
-      const { rankedIds, timestamp } = JSON.parse(cached) as { rankedIds: string[]; timestamp: number };
-      if (Date.now() - timestamp < CACHE_TTL_MS) {
-        return applyRankedOrder(items, rankedIds);
+  if (!hasBrief) {
+    try {
+      const cached = await AsyncStorage.getItem(key);
+      if (cached) {
+        const { rankedIds, timestamp } = JSON.parse(cached) as { rankedIds: string[]; timestamp: number };
+        if (Date.now() - timestamp < CACHE_TTL_MS) {
+          return applyRankedOrder(items, rankedIds);
+        }
       }
+    } catch {
+      // proceed without cache
     }
-  } catch {
-    // proceed without cache
   }
 
   try {
     const { data, error } = await supabase.functions.invoke('rank-feed', {
-      body: { items, userId: user.id },
+      body: { items, userId: user.id, briefContext: options?.briefContext ?? null },
     });
 
     if (error || !data?.rankedIds) return items;
 
-    await AsyncStorage.setItem(key, JSON.stringify({ rankedIds: data.rankedIds, timestamp: Date.now() }));
+    if (!hasBrief) {
+      await AsyncStorage.setItem(key, JSON.stringify({ rankedIds: data.rankedIds, timestamp: Date.now() }));
+    }
     return applyRankedOrder(items, data.rankedIds);
   } catch {
     return items;

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FeedItem } from '../types/feed';
+import { BriefMatchContext } from '../types/brief';
 import { fetchFeedPage, FEED_PAGE_SIZE } from '../services/feedService';
 import { rankFeedItems } from '../services/rankingService';
 
@@ -13,7 +14,7 @@ export interface UseFeedResult {
   loadMore: () => Promise<void>;
 }
 
-export function useFeed(): UseFeedResult {
+export function useFeed(briefContext?: BriefMatchContext | null): UseFeedResult {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -21,6 +22,8 @@ export function useFeed(): UseFeedResult {
   const [error, setError] = useState<string | null>(null);
   const offsetRef = useRef(0);
   const busyRef = useRef(false);
+  const briefContextRef = useRef(briefContext);
+  briefContextRef.current = briefContext;
 
   const load = useCallback(async (reset: boolean) => {
     if (busyRef.current) return;
@@ -35,7 +38,10 @@ export function useFeed(): UseFeedResult {
 
     try {
       const page = await fetchFeedPage(offsetRef.current);
-      const ranked = await rankFeedItems(page);
+      const ranked = await rankFeedItems(
+        page,
+        briefContextRef.current ? { briefContext: briefContextRef.current } : undefined,
+      );
       setItems(prev => (reset ? ranked : [...prev, ...ranked]));
       setHasMore(page.length === FEED_PAGE_SIZE);
       offsetRef.current += page.length;
@@ -50,6 +56,11 @@ export function useFeed(): UseFeedResult {
   }, []);
 
   useEffect(() => { load(true); }, [load]);
+
+  useEffect(() => {
+    if (briefContext) load(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [briefContext?.brief_title]);
 
   const refresh = useCallback(() => load(true), [load]);
 

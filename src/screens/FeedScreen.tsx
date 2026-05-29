@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFeed } from '../hooks/useFeed';
+import { useBriefContext } from '../context/BriefContext';
 import FeedCard from '../components/feed/FeedCard';
 import FeedCardSkeleton from '../components/feed/FeedCardSkeleton';
 import { FeedItem } from '../types/feed';
@@ -23,7 +24,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function FeedScreen() {
-  const { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore } = useFeed();
+  const { activeBriefMatch, clearBriefMatch } = useBriefContext();
+  const { items, isLoading, isLoadingMore, hasMore, error, refresh, loadMore } = useFeed(activeBriefMatch);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const navigation = useNavigation<NavProp>();
 
@@ -143,6 +145,27 @@ export default function FeedScreen() {
         maxToRenderPerBatch={3}
         windowSize={5}
       />
+
+      {/* Brief match banner */}
+      {activeBriefMatch && (
+        <View style={styles.briefBanner}>
+          <Text style={styles.briefBannerText} numberOfLines={1}>
+            ✦ Matching: {activeBriefMatch.brief_title}
+          </Text>
+          <TouchableOpacity onPress={clearBriefMatch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.briefBannerClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('BriefGenerator')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>✦ What do you need?</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -201,5 +224,51 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     marginBottom: spacing.md,
     textAlign: 'center',
+  },
+  briefBanner: {
+    position: 'absolute',
+    top: 52,
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: 'rgba(46,204,113,0.18)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  briefBannerText: {
+    color: colors.primary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  briefBannerClose: {
+    color: colors.primary,
+    fontSize: 14,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    alignSelf: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabText: {
+    color: colors.black,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.3,
   },
 });
