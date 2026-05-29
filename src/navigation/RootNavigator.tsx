@@ -14,6 +14,9 @@ import ContractBuilderScreen from '../screens/ContractBuilderScreen';
 import ContractReviewScreen from '../screens/ContractReviewScreen';
 import ProjectDetailScreen from '../screens/ProjectDetailScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
+import FreelancerNotificationsScreen from '../screens/FreelancerNotificationsScreen';
+import PortfolioUploadScreen from '../screens/PortfolioUploadScreen';
+import ProfileEditScreen from '../screens/ProfileEditScreen';
 import { GeneratedBrief } from '../types/brief';
 import { colors } from '../theme';
 
@@ -35,6 +38,9 @@ export type RootStackParamList = {
   ContractReview: { contractId: string; conversationId: string };
   ProjectDetail: { projectId: string; conversationId: string };
   Availability: undefined;
+  FreelancerNotifications: undefined;
+  PortfolioUpload: undefined;
+  ProfileEdit: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,6 +108,21 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Availability"
         component={AvailabilityScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="FreelancerNotifications"
+        component={FreelancerNotificationsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="PortfolioUpload"
+        component={PortfolioUploadScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ProfileEdit"
+        component={ProfileEditScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

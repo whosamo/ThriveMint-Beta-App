@@ -132,6 +132,11 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
 
         const u = Array.isArray(fp.users) ? fp.users[0] : fp.users as any;
 
+        // Record profile view (fire-and-forget; own views don't count)
+        if (u.id !== user.id) {
+          supabase.from('profile_views').insert({ freelancer_id: fp.id, viewer_id: user.id }).then(() => {});
+        }
+
         const today = new Date();
         const stripStart = today.toISOString().split('T')[0];
         const stripEnd = new Date(today.getTime() + 13 * 86400000).toISOString().split('T')[0];
