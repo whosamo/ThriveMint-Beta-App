@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import BottomTabNavigator from './BottomTabNavigator';
+import BusinessTabNavigator from './BusinessTabNavigator';
 import FreelancerProfileScreen from '../screens/FreelancerProfileScreen';
 import ChatScreen from '../screens/ChatScreen';
 import BriefGeneratorScreen from '../screens/BriefGeneratorScreen';
@@ -46,7 +47,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { session, isLoading, hasProfile } = useAuth();
+  const { session, isLoading, hasProfile, profile } = useAuth();
 
   if (isLoading) {
     return (
@@ -56,6 +57,8 @@ export default function RootNavigator() {
     );
   }
 
+  const isBusiness = profile?.role === 'business';
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       {!session ? (
@@ -63,7 +66,7 @@ export default function RootNavigator() {
       ) : !hasProfile ? (
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
-        <Stack.Screen name="Main" component={BottomTabNavigator} />
+        <Stack.Screen name="Main" component={isBusiness ? BusinessTabNavigator : BottomTabNavigator} />
       )}
       <Stack.Screen
         name="FreelancerProfile"
