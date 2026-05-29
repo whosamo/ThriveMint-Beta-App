@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase';
 import {
@@ -31,6 +32,7 @@ import {
   createProject,
   getOrCreateConversation,
 } from '../services/messagingService';
+import { getContractByProject } from '../services/contractService';
 import { Message, ProjectDraft } from '../types/messaging';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import MessageBubble from '../components/messaging/MessageBubble';
@@ -39,12 +41,13 @@ import ProjectModal from '../components/messaging/ProjectModal';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type RouteT = RouteProp<RootStackParamList, 'Chat'>;
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 const PAGE_SIZE = 30;
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteT>();
   const { conversationId, otherUserId, otherUserName, otherUserAvatar } = route.params;
 
@@ -195,6 +198,33 @@ export default function ChatScreen() {
     [conversationId, currentUserId, otherUserId],
   );
 
+  const handleContractAction = useCallback(
+    async (projectId: string) => {
+      if (!currentUserId) return;
+      try {
+        const existing = await getContractByProject(projectId);
+        if (existing && existing.status !== 'draft') {
+          navigation.navigate('ContractReview', {
+            contractId: existing.id,
+            conversationId,
+          });
+        } else {
+          navigation.navigate('ContractBuilder', { projectId, conversationId });
+        }
+      } catch {
+        navigation.navigate('ContractBuilder', { projectId, conversationId });
+      }
+    },
+    [currentUserId, conversationId, navigation],
+  );
+
+  const handleContractPress = useCallback(
+    (contractId: string, _projectId: string) => {
+      navigation.navigate('ContractReview', { contractId, conversationId });
+    },
+    [conversationId, navigation],
+  );
+
   const avatarUrl = useMemo(
     () =>
       otherUserAvatar
@@ -211,9 +241,11 @@ export default function ChatScreen() {
         message={item}
         isMine={item.sender_id === currentUserId}
         currentUserId={currentUserId ?? ''}
+        onContractAction={handleContractAction}
+        onContractPress={handleContractPress}
       />
     ),
-    [currentUserId],
+    [currentUserId, handleContractAction, handleContractPress],
   );
 
   const ListFooter = useCallback(() => {

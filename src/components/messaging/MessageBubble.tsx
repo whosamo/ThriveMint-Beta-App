@@ -1,6 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { Message, MeetingMetadata, ProjectMetadata } from '../../types/messaging';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Message, MeetingMetadata, ProjectMetadata, ContractMetadata } from '../../types/messaging';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import MeetingCard from './MeetingCard';
 
@@ -8,6 +8,8 @@ interface Props {
   message: Message;
   isMine: boolean;
   currentUserId: string;
+  onContractAction?: (projectId: string) => void;
+  onContractPress?: (contractId: string, projectId: string) => void;
 }
 
 function formatTime(iso: string): string {
@@ -17,7 +19,13 @@ function formatTime(iso: string): string {
   return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
-export default function MessageBubble({ message, isMine, currentUserId }: Props) {
+export default function MessageBubble({
+  message,
+  isMine,
+  currentUserId,
+  onContractAction,
+  onContractPress,
+}: Props) {
   if (message.message_type === 'system') {
     return (
       <View style={styles.systemRow}>
@@ -63,7 +71,50 @@ export default function MessageBubble({ message, isMine, currentUserId }: Props)
               <Text style={styles.projectStatLabel}>Milestones</Text>
             </View>
           </View>
+          {isMine && onContractAction && (
+            <TouchableOpacity
+              style={styles.contractActionBtn}
+              onPress={() => onContractAction(meta.project_id)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.contractActionText}>📄 Generate Contract</Text>
+            </TouchableOpacity>
+          )}
         </View>
+        <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
+          {formatTime(message.created_at)}
+        </Text>
+      </View>
+    );
+  }
+
+  if (message.message_type === 'contract') {
+    const meta = message.metadata as ContractMetadata | null;
+    if (!meta) return null;
+    return (
+      <View style={[styles.cardRow, isMine ? styles.rowRight : styles.rowLeft]}>
+        <TouchableOpacity
+          style={[styles.contractCard, isMine ? styles.contractCardMine : styles.contractCardTheirs]}
+          onPress={() => onContractPress?.(meta.contract_id, meta.project_id)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.contractCardHeader}>
+            <Text style={styles.contractCardIcon}>📄</Text>
+            <View>
+              <Text style={styles.contractCardLabel}>CONTRACT</Text>
+              <Text style={styles.contractCardSub}>Scope of Work Agreement</Text>
+            </View>
+          </View>
+          <View style={[styles.contractBadge, meta.status === 'active' && styles.contractBadgeActive]}>
+            <Text style={[styles.contractBadgeText, meta.status === 'active' && styles.contractBadgeTextActive]}>
+              {meta.status === 'active'
+                ? '✓ Active'
+                : meta.status === 'pending_signature'
+                ? '⏳ Awaiting Signature'
+                : 'Draft'}
+            </Text>
+          </View>
+        </TouchableOpacity>
         <Text style={[styles.timestamp, isMine ? styles.timestampRight : styles.timestampLeft]}>
           {formatTime(message.created_at)}
         </Text>
@@ -218,4 +269,66 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginHorizontal: spacing.sm,
   },
+  contractActionBtn: {
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+  },
+  contractActionText: {
+    color: colors.primary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  contractCard: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    minWidth: 220,
+  },
+  contractCardMine: {
+    backgroundColor: 'rgba(46,204,113,0.15)',
+    borderColor: colors.primary,
+  },
+  contractCardTheirs: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+  },
+  contractCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  contractCardIcon: { fontSize: 22 },
+  contractCardLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
+    letterSpacing: 0.8,
+  },
+  contractCardSub: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  contractBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  contractBadgeActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(46,204,113,0.12)',
+  },
+  contractBadgeText: {
+    color: colors.warning,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  contractBadgeTextActive: { color: colors.primary },
 });

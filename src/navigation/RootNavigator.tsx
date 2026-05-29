@@ -10,6 +10,9 @@ import ChatScreen from '../screens/ChatScreen';
 import BriefGeneratorScreen from '../screens/BriefGeneratorScreen';
 import BriefResultScreen from '../screens/BriefResultScreen';
 import SavedBriefsScreen from '../screens/SavedBriefsScreen';
+import ContractBuilderScreen from '../screens/ContractBuilderScreen';
+import ContractReviewScreen from '../screens/ContractReviewScreen';
+import ProjectDetailScreen from '../screens/ProjectDetailScreen';
 import { GeneratedBrief } from '../types/brief';
 import { colors } from '../theme';
 
@@ -27,6 +30,9 @@ export type RootStackParamList = {
   BriefGenerator: undefined;
   BriefResult: { brief: GeneratedBrief };
   SavedBriefs: undefined;
+  ContractBuilder: { projectId: string; conversationId: string };
+  ContractReview: { contractId: string; conversationId: string };
+  ProjectDetail: { projectId: string; conversationId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -74,6 +80,21 @@ export default function RootNavigator() {
       <Stack.Screen
         name="SavedBriefs"
         component={SavedBriefsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ContractBuilder"
+        component={ContractBuilderScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ContractReview"
+        component={ContractReviewScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ProjectDetail"
+        component={ProjectDetailScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

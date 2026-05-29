@@ -1,4 +1,4 @@
-export type MessageType = 'text' | 'image' | 'meeting' | 'project' | 'system';
+export type MessageType = 'text' | 'image' | 'meeting' | 'project' | 'system' | 'contract';
 export type MeetingType = 'in_person' | 'video_call';
 export type MeetingStatus = 'pending' | 'confirmed' | 'cancelled';
 
@@ -10,7 +10,7 @@ export interface Message {
   file_url: string | null;
   message_type: MessageType;
   is_read: boolean;
-  metadata: MeetingMetadata | ProjectMetadata | null;
+  metadata: MeetingMetadata | ProjectMetadata | ContractMetadata | null;
   created_at: string;
 }
 
@@ -26,6 +26,12 @@ export interface ProjectMetadata {
   title: string;
   total_amount: number;
   milestone_count: number;
+}
+
+export interface ContractMetadata {
+  contract_id: string;
+  project_id: string;
+  status: 'draft' | 'pending_signature' | 'active';
 }
 
 export interface Conversation {
