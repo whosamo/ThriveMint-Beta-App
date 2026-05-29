@@ -17,6 +17,9 @@ export interface FeedItem {
   portfolio_title: string | null;
   portfolio_description: string | null;
   distance_miles: number | null;
+  accepting_new_work?: boolean;
+  is_available_today?: boolean;
+  typical_response_time?: string;
 }
 
 export type PortfolioItemType = 'video' | 'image' | 'before_after' | 'testimonial';

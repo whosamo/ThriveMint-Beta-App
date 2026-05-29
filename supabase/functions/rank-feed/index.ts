@@ -32,6 +32,8 @@ Deno.serve(async (req: Request) => {
       categories: item.service_categories ?? [],
       rate: item.hourly_rate,
       availability: item.availability,
+      accepting_new_work: item.accepting_new_work ?? true,
+      available_today: item.is_available_today ?? false,
       distance_miles: item.distance_miles,
       has_video: item.portfolio_media_type === 'video',
     }));
@@ -44,11 +46,12 @@ Deno.serve(async (req: Request) => {
 ${briefSection}
 Rank the following freelancer profiles from most to least relevant. Prioritize:
 1. Match to service category and ideal profile (if provided)
-2. Has a video portfolio (signals high engagement)
-3. Relevant and diverse service categories
-4. Active availability (full_time or part_time over contract)
-5. Shorter distance when available
-6. Competitive hourly rate
+2. available_today=true AND accepting_new_work=true (freelancer is open for new projects right now)
+3. Has a video portfolio (signals high engagement)
+4. Relevant and diverse service categories
+5. Active availability (full_time or part_time over contract)
+6. Shorter distance when available
+7. Competitive hourly rate
 
 Freelancers (JSON):
 ${JSON.stringify(profiles, null, 2)}

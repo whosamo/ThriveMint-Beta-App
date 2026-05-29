@@ -171,6 +171,11 @@ export default function FeedCard({ item, isFocused, onShortlist, onPress }: Prop
                   <Text style={styles.distanceText}>{distanceLabel}</Text>
                 </View>
               )}
+              {item.accepting_new_work && item.is_available_today && (
+                <View style={styles.availNowBadge}>
+                  <Text style={styles.availNowText}>● Available now</Text>
+                </View>
+              )}
             </View>
             <View style={styles.availBadge}>
               <Text style={styles.availText}>
@@ -326,6 +331,19 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.medium,
+  },
+  availNowBadge: {
+    backgroundColor: 'rgba(46,204,113,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(46,204,113,0.6)',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  availNowText: {
+    color: '#2ECC71',
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
   },
   availBadge: {
     backgroundColor: 'rgba(255,255,255,0.12)',

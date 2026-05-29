@@ -17,9 +17,11 @@ import { Video, ResizeMode } from 'expo-av';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { supabase } from '../services/supabase';
 import { getOrCreateConversation } from '../services/messagingService';
+import { getAvailabilityRange } from '../services/availabilityService';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { haversineDistanceMiles } from '../utils/haversine';
 import { PortfolioItem, ReviewItem } from '../types/feed';
+import { AvailabilityStatus, STATUS_COLOR, RESPONSE_TIME_LABELS } from '../types/availability';
 import PortfolioViewer from '../components/feed/PortfolioViewer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FreelancerProfile'>;
@@ -46,6 +48,8 @@ interface ProfileState {
   badges: string[];
   yearsExperience: number | null;
   portfolioItems: PortfolioItem[];
+  acceptingNewWork: boolean;
+  typicalResponseTime: string;
 }
 
 const BADGE_CONFIG: Record<string, { bg: string; color: string }> = {
@@ -88,6 +92,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
 
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [availabilityStrip, setAvailabilityStrip] = useState<Record<string, AvailabilityStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isShortlisted, setIsShortlisted] = useState(false);
@@ -111,6 +116,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
           .select(`
             id, bio, hourly_rate, availability, service_categories,
             verification_status, badges, years_experience,
+            accepting_new_work, typical_response_time,
             users!inner(id, full_name, avatar_url, city, state, lat, lng),
             portfolio_items(id, media_url, type, title, description, created_at)
           `)
@@ -122,7 +128,11 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
 
         const u = Array.isArray(fp.users) ? fp.users[0] : fp.users as any;
 
-        const [reviewsRes, shortlistRes, locRes] = await Promise.all([
+        const today = new Date();
+        const stripStart = today.toISOString().split('T')[0];
+        const stripEnd = new Date(today.getTime() + 13 * 86400000).toISOString().split('T')[0];
+
+        const [reviewsRes, shortlistRes, locRes, stripMap] = await Promise.all([
           supabase
             .from('reviews')
             .select('id, rating, comment, created_at, reviewer_id')
@@ -140,6 +150,7 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
             .select('lat, lng')
             .eq('id', user.id)
             .single(),
+          getAvailabilityRange(u.id, stripStart, stripEnd),
         ]);
 
         if (cancelled) return;
@@ -200,8 +211,11 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
           badges: fp.badges ?? [],
           yearsExperience: fp.years_experience ?? null,
           portfolioItems: sortedItems,
+          acceptingNewWork: fp.accepting_new_work ?? true,
+          typicalResponseTime: fp.typical_response_time ?? 'within_48_hours',
         });
         setReviews(mappedReviews);
+        setAvailabilityStrip(stripMap);
         setIsShortlisted(shortlistRes.data != null);
 
         const loc = locRes.data as any;
@@ -261,8 +275,8 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
     ? supabase.storage.from('avatars').getPublicUrl(profile.avatarUrl).data.publicUrl
     : null;
 
-  const handleShortlist = useCallback(async () => {
-    if (!currentUserId || !profile || isShortlisted) return;
+  const doShortlist = useCallback(async () => {
+    if (!currentUserId || !profile) return;
     setIsSaving(true);
     setIsShortlisted(true);
     const { error: e } = await supabase
@@ -273,7 +287,35 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
       Alert.alert('Error', 'Could not save to shortlist. Please try again.');
     }
     setIsSaving(false);
-  }, [currentUserId, profile, isShortlisted]);
+  }, [currentUserId, profile]);
+
+  const handleShortlist = useCallback(async () => {
+    if (!currentUserId || !profile || isShortlisted) return;
+
+    const todayKey = new Date().toISOString().split('T')[0];
+    const todayStatus = availabilityStrip[todayKey];
+    const isUnavailable = !profile.acceptingNewWork || todayStatus === 'busy';
+
+    if (isUnavailable) {
+      Alert.alert(
+        'Freelancer may be busy',
+        profile.acceptingNewWork
+          ? `${profile.fullName} has marked today as busy. They may not respond quickly.`
+          : `${profile.fullName} is not currently accepting new work.`,
+        [
+          { text: 'Message Anyway', onPress: () => doShortlist() },
+          {
+            text: 'Find Available Alternatives',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+      );
+      return;
+    }
+
+    await doShortlist();
+  }, [currentUserId, profile, isShortlisted, availabilityStrip, doShortlist, navigation]);
 
   const handleMessage = useCallback(async () => {
     if (!isShortlisted) {
@@ -407,6 +449,66 @@ export default function FreelancerProfileScreen({ route, navigation }: Props) {
             })}
           </ScrollView>
         )}
+
+        <View style={styles.divider} />
+
+        {/* ── Availability Strip ──────────────────────────────────────── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Availability</Text>
+            {profile.acceptingNewWork ? (
+              <View style={styles.availNowPill}>
+                <Text style={styles.availNowPillText}>● Open to work</Text>
+              </View>
+            ) : (
+              <View style={styles.unavailPill}>
+                <Text style={styles.unavailPillText}>Not taking new work</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.stripRow}>
+            {Array.from({ length: 14 }, (_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() + i);
+              const key = d.toISOString().split('T')[0];
+              const status = availabilityStrip[key] ?? null;
+              const dayNum = d.getDate();
+              const dayName = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][d.getDay()];
+              const bg = status ? STATUS_COLOR[status] : 'rgba(255,255,255,0.06)';
+              return (
+                <View key={key} style={styles.stripCell}>
+                  <Text style={styles.stripDayName}>{dayName}</Text>
+                  <View style={[styles.stripDot, { backgroundColor: bg }]}>
+                    <Text style={styles.stripDayNum}>{dayNum}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          <View style={styles.stripLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: STATUS_COLOR.available }]} />
+              <Text style={styles.legendText}>Available</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: STATUS_COLOR.partial }]} />
+              <Text style={styles.legendText}>Partial</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: STATUS_COLOR.busy }]} />
+              <Text style={styles.legendText}>Busy</Text>
+            </View>
+          </View>
+
+          <Text style={styles.responseTimeLabel}>
+            Typically responds:{' '}
+            <Text style={styles.responseTimeValue}>
+              {RESPONSE_TIME_LABELS[profile.typicalResponseTime] ?? 'Within 48 hours'}
+            </Text>
+          </Text>
+        </View>
 
         <View style={styles.divider} />
 
@@ -755,6 +857,70 @@ const styles = StyleSheet.create({
   errorText: { color: colors.error, fontSize: typography.fontSize.base, textAlign: 'center', marginBottom: spacing.md },
   goBackBtn: { backgroundColor: colors.surface, borderRadius: borderRadius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   goBackText: { color: colors.white, fontWeight: typography.fontWeight.medium },
+
+  // Availability strip
+  availNowPill: {
+    backgroundColor: 'rgba(46,204,113,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(46,204,113,0.5)',
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  availNowPillText: { color: '#2ECC71', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold },
+  unavailPill: {
+    backgroundColor: 'rgba(100,100,100,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(100,100,100,0.4)',
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  unavailPillText: { color: colors.gray500, fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.medium },
+  stripRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  stripCell: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  stripDayName: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: typography.fontWeight.medium,
+    textTransform: 'uppercase',
+  },
+  stripDot: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stripDayNum: {
+    color: colors.white,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  stripLegend: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { color: colors.textMuted, fontSize: typography.fontSize.xs },
+  responseTimeLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    marginTop: spacing.xs,
+  },
+  responseTimeValue: {
+    color: colors.white,
+    fontWeight: typography.fontWeight.semibold,
+  },
 
   // CTA bar
   ctaBar: {

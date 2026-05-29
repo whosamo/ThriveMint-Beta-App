@@ -40,6 +40,19 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.menuChevron}>›</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuRow}
+        onPress={() => navigation.navigate('Availability')}
+        activeOpacity={0.75}
+      >
+        <Text style={styles.menuIcon}>📅</Text>
+        <View style={styles.menuText}>
+          <Text style={styles.menuLabel}>Set Availability</Text>
+          <Text style={styles.menuSub}>Let businesses know when you're open</Text>
+        </View>
+        <Text style={styles.menuChevron}>›</Text>
+      </TouchableOpacity>
     </View>
   );
 }
