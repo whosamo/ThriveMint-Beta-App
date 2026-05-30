@@ -88,7 +88,7 @@ export default function PortfolioUploadScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.85,
       allowsEditing: true,
     });
@@ -104,7 +104,7 @@ export default function PortfolioUploadScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
